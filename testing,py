@@ -1,0 +1,56 @@
+import cv2
+import tensorflow as tf
+import numpy as np
+
+model = tf.keras.models.load_model('model.h5')
+names_of_people = ["01", "02", "03"]
+def create_person_photos() -> None:
+
+    cap = cv2.VideoCapture(0)
+
+    while True:
+        ret, frame = cap.read()
+        if ret:
+            gray_img = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            haar_cascade = cv2.CascadeClassifier('Haarcascade_frontalface_default.xml')
+            faces_rect = haar_cascade.detectMultiScale(gray_img, 1.1, 9)
+
+            for (x, y, w, h) in faces_rect:
+                if x:
+                    face_img = frame[y:y + h, x:x + w]
+                    if face_img.shape[:2] < (50, 50):
+                        break
+                    img_array = cv2.resize(face_img, (100, 100))
+                    img_array = np.expand_dims(img_array, axis=0)
+                    predictions = model.predict(img_array)
+
+                    winner = ""
+                    winner_acuracy: float = 0
+
+                    for element in predictions:
+                        highest = 0
+                        name = ""
+                        for i, names in enumerate(element): 
+                            if names >= highest:
+                                highest = names
+                                name = i
+
+                        winner = names_of_people[name]
+                        winner_acuracy = highest
+                    
+                    cv2.putText(frame, f"{winner}: {winner_acuracy*100}%", (x, y-10),
+                                cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 2)
+                    
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+        cv2.imshow("test", frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+if __name__ == '__main__':
+    create_person_photos()
